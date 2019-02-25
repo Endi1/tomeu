@@ -90,6 +90,7 @@ def parse_feeds(feed_urls):
 
     conn.commit()
     generate_index()
+    c.close()
 
 
 def _get_hash(entries):
