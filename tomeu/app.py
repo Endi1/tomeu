@@ -104,10 +104,25 @@ def _get_hash(entries):
     return hash_obj.hexdigest()
 
 
+def setup_cache(folder_name):
+    db_location = folder_name+'/.cache'
+    f = open(db_location, 'w')
+    f.close()
+    conn = sqlite3.connect(db_location)
+    c = conn.cursor()
+    c.execute(
+        'CREATE TABLE cache (id integer primary key, feed_url text, etag text, hash text)'
+    )
+    conn.commit()
+    conn.close()
+    return
+
+
 def setup(folder_name):
 
     if not os.path.exists(folder_name):
         os.makedirs(folder_name)
+        setup_cache(folder_name)
         print('Folder created')
     else:
         print(f'Folder with name {folder_name} already exists, aborting')
