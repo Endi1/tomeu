@@ -114,11 +114,17 @@ def setup(folder_name):
     return
 
 
-def main():
+def create_parser():
     parser = argparse.ArgumentParser(description='Aggregate RSS.')
     parser.add_argument('-i', '--input', type=str,
-                        help='The file with the feed URLs')
+                        help='The file with the feed URLs', default='feeds')
     parser.add_argument('-s', '--setup', help='Setup a folder for RSS feeds')
+
+    return parser
+
+
+def main():
+    parser = create_parser()
     args = parser.parse_args()
 
     input_file_path = args.input
@@ -127,16 +133,19 @@ def main():
     if setup_folder_name:
         setup(setup_folder_name)
 
-    input_file = None
+        return
+    else:
 
-    if not isfile(input_file_path):
-        raise TypeError('Missing input file')
+        if not isfile(input_file_path):
+            raise TypeError('Missing input file')
 
-    input_file = open(input_file_path, 'r')
-    feed_urls = input_file.readlines()
-    input_file.close()
+        input_file = open(input_file_path, 'r')
+        feed_urls = input_file.readlines()
+        input_file.close()
 
-    parse_feeds(feed_urls)
+        parse_feeds(feed_urls)
+
+        return
 
 
 if __name__ == '__main__':
