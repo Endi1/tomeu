@@ -19,7 +19,6 @@ def generate_index():
 
         for item in items:
             location = feed_title + '/' + item
-            # location = location[2:].replace(' ', '%20')
             location = urllib.parse.quote(location[2:])
             content += f"<a href={location}>{item}</a><br />"
 
