@@ -104,12 +104,29 @@ def _get_hash(entries):
     return hash_obj.hexdigest()
 
 
+def setup(folder_name):
+
+    if not os.path.exists(folder_name):
+        os.makedirs(folder_name)
+        print('Folder created')
+    else:
+        print(f'Folder with name {folder_name} already exists, aborting')
+    return
+
+
 def main():
     parser = argparse.ArgumentParser(description='Aggregate RSS.')
-    parser.add_argument('input_file', type=str,
+    parser.add_argument('-i', '--input', type=str,
                         help='The file with the feed URLs')
+    parser.add_argument('-s', '--setup', help='Setup a folder for RSS feeds')
     args = parser.parse_args()
-    input_file_path = args.input_file
+
+    input_file_path = args.input
+    setup_folder_name = args.setup
+
+    if setup_folder_name:
+        setup(setup_folder_name)
+
     input_file = None
 
     if not isfile(input_file_path):
