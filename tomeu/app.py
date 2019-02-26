@@ -62,6 +62,11 @@ def parse_feeds(feed_urls):
                     print('Skipping, same etag... ', url)
                     # skip this feed
                     continue
+                else:
+                    c.execute(
+                        'UPDATE cache SET etag=? WHERE feed_url=?',
+                        (d.etag, url)
+                    )
             else:
                 c.execute(
                     'SELECT hash from cache where feed_url=?', (url,)
@@ -73,6 +78,11 @@ def parse_feeds(feed_urls):
                     print('Skipping, same hash...', url)
                     # Skip this feed
                     continue
+                else:
+                    c.execute(
+                        'UPDATE cache SET hash=? WHERE feed_url=?',
+                        (hash_, url)
+                    )
 
         feed_title = d.feed.title
 
