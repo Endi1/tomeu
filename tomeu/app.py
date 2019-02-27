@@ -1,10 +1,13 @@
 import os
+import shutil
 import hashlib
 import urllib.parse
 import sqlite3
 from os.path import isfile
 import feedparser
 import argparse
+
+from datetime import datetime
 
 
 def generate_index():
@@ -29,7 +32,7 @@ def generate_index():
 
 
 def parse_feeds(feed_urls):
-    conn = sqlite3.connect('.cache')
+    conn = sqlite3.connect('.cache', detect_types=sqlite3.PARSE_DECLTYPES)
     c = conn.cursor()
 
     for url in feed_urls:
@@ -48,8 +51,8 @@ def parse_feeds(feed_urls):
                 hash_ = _get_hash(d.entries)
 
             c.execute(
-                'INSERT INTO cache (feed_url, etag, hash) VALUES (?,?,?)',
-                (url, etag, hash_)
+                'INSERT INTO cache (feed_url, etag, hash, last_delete) VALUES (?,?,?, ?)',
+                (url, etag, hash_, datetime.now())
             )
         else:
             c.execute(
@@ -84,7 +87,20 @@ def parse_feeds(feed_urls):
                         (hash_, url)
                     )
 
+            c.execute(
+                'SELECT last_delete FROM cache WHERE feed_url=?',
+                (url)
+            )
+
         feed_title = d.feed.title
+
+        # Reset folders every week
+        last_delete = c.fetchone()[0]
+        week_last_delete = last_delete.isocalendar()[1]
+        current_week_time = datetime.now().isocalendar()[1]
+
+        if current_week_time - week_last_delete >= 1:
+            shutil.rmtree(feed_title)
 
         if not os.path.exists(feed_title):
             os.makedirs(feed_title)
@@ -121,7 +137,7 @@ def setup_cache(folder_name):
     conn = sqlite3.connect(db_location)
     c = conn.cursor()
     c.execute(
-        'CREATE TABLE cache (id integer primary key, feed_url text, etag text, hash text)'
+        'CREATE TABLE cache (id integer primary key, feed_url text, etag text, hash text, last_delete timestamp)'
     )
     conn.commit()
     conn.close()
