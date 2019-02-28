@@ -31,81 +31,122 @@ def generate_index():
     return
 
 
-def parse_feeds(feed_urls):
-    conn = sqlite3.connect('.cache', detect_types=sqlite3.PARSE_DECLTYPES)
-    c = conn.cursor()
+class Feed():
+    def __init__(self, url):
+        self.url = url
 
-    for url in feed_urls:
-        d = feedparser.parse(url)
+    def sync(self):
+        conn = sqlite3.connect('.cache', detect_types=sqlite3.PARSE_DECLTYPES)
+        c = conn.cursor()
+        self.d = feedparser.parse(self.url)
 
-        if not d.feed or not d.entries:
-            continue
+        if not self.d.feed or not self.d.entries:
+            return
 
-        c.execute('SELECT id FROM cache where feed_url=?', (url,))
+        c.execute('SELECT id FROM cache where feed_url=?', (self.url,))
         id_ = c.fetchone()
 
         if not id_:
-            etag = d.etag if 'etag' in d else ''
-            hash_ = ''
-            if not etag:
-                hash_ = _get_hash(d.entries)
+            self._insert_to_db(c)
+
+        if not self._needs_update(c):
+            return
+
+        self._delete_old_entries(c)
+
+        self._parse_feed(c)
+
+        conn.commit()
+        c.close()
+        generate_index()
+
+    def _get_etag(self, c):
+        c.execute(
+            'SELECT etag FROM cache WHERE feed_url=?', (self.url,)
+        )
+        etag = c.fetchone()
+        return etag
+
+    def _get_hash(self, c):
+        c.execute(
+            'SELECT hash from cache where feed_url=?', (self.url,)
+        )
+        _hash = c.fetchone()
+
+        return _hash
+
+    def _generate_hash(self, entries):
+        titles = [e.title for e in entries]
+        mergetitles = ""
+
+        for title in titles:
+            mergetitles += title
+
+            hash_obj = hashlib.md5(mergetitles.encode('utf-8'))
+
+        return hash_obj.hexdigest()
+
+    def _insert_to_db(self, c):
+        etag = self.d.etag if 'etag' in self.d else ''
+        hash_ = ''
+        if not etag:
+            hash_ = self._generate_hash(self.d.entries)
+
+        c.execute(
+            'INSERT INTO cache (feed_url, etag, hash, last_delete) VALUES (?,?,?, ?)',
+            (self.url, etag, hash_, datetime.now())
+        )
+
+    def _needs_update(self, c):
+        etag = self._get_etag(c)
+        cached_hash = self._get_hash(c)
+
+        if etag and 'etag' in self.d:
+            if etag[0] == self.d.etag:
+                print('Skipping, same etag... ', self.url)
+                return False
 
             c.execute(
-                'INSERT INTO cache (feed_url, etag, hash, last_delete) VALUES (?,?,?, ?)',
-                (url, etag, hash_, datetime.now())
+                'UPDATE cache SET etag=? WHERE feed_url=?',
+                (self.d.etag, self.url)
             )
+            return True
         else:
-            c.execute(
-                'SELECT etag FROM cache WHERE feed_url=?', (url,)
-            )
-            etag = c.fetchone()
+            hash_ = self._generate_hash(self.d.entries)
 
-            if etag and 'etag' in d:
-                if etag[0] == d.etag:
-                    print('Skipping, same etag... ', url)
-                    # skip this feed
-                    continue
-                else:
-                    c.execute(
-                        'UPDATE cache SET etag=? WHERE feed_url=?',
-                        (d.etag, url)
-                    )
-            else:
-                c.execute(
-                    'SELECT hash from cache where feed_url=?', (url,)
-                )
-                cached_hash = c.fetchone()
-                hash_ = _get_hash(d.entries)
-
-                if cached_hash[0] == hash_:
-                    print('Skipping, same hash...', url)
-                    # Skip this feed
-                    continue
-                else:
-                    c.execute(
-                        'UPDATE cache SET hash=? WHERE feed_url=?',
-                        (hash_, url)
-                    )
+            if cached_hash[0] == hash_:
+                print('Skipping, same hash...', self.url)
+                # Skip this feed
+                return False
 
             c.execute(
-                'SELECT last_delete FROM cache WHERE feed_url=?',
-                (url)
+                'UPDATE cache SET hash=? WHERE feed_url=?',
+                (hash_, self.url)
             )
+            return True
 
-        feed_title = d.feed.title
+    def _delete_old_entries(self, c):
+        c.execute(
+            'SELECT last_delete FROM cache WHERE feed_url=?',
+            (self.url)
+        )
 
-        # Reset folders every week
         last_delete = c.fetchone()[0]
         week_last_delete = last_delete.isocalendar()[1]
         current_week_time = datetime.now().isocalendar()[1]
 
         if current_week_time - week_last_delete >= 1:
-            shutil.rmtree(feed_title)
+            shutil.rmtree(self.d.feed.feed_title)
+
+    def _parse_feed(self, c):
+        feed_title = self.d.feed.title
+
+        # Reset folders every week
 
         if not os.path.exists(feed_title):
             os.makedirs(feed_title)
 
-        for entry in d.entries:
+        for entry in self.d.entries:
             entry_title = entry.title
             body = entry.description
             entry_title = entry_title.replace('/', '')
@@ -114,20 +155,7 @@ def parse_feeds(feed_urls):
             f.write(body)
             f.close()
 
-    conn.commit()
-    generate_index()
-    c.close()
-
-
-def _get_hash(entries):
-    titles = [e.title for e in entries]
-    mergetitles = ""
-
-    for title in titles:
-        mergetitles += title
-
-    hash_obj = hashlib.md5(mergetitles.encode('utf-8'))
-    return hash_obj.hexdigest()
+        return
 
 
 def setup_cache(folder_name):
@@ -184,7 +212,9 @@ def main():
         feed_urls = input_file.readlines()
         input_file.close()
 
-        parse_feeds(feed_urls)
+        for url in feed_urls:
+            feed = Feed(url)
+            feed.sync()
 
         return
 
