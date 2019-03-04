@@ -7,24 +7,82 @@ from os.path import isfile
 import feedparser
 import argparse
 
+from jinja2 import Template
 from datetime import datetime
 
 
-def generate_index():
-    content = ""
-    for folder in os.walk('.'):
-        feed_title = folder[0]
+class Index():
 
-        if feed_title == '.' or feed_title == '':
-            continue
+    def __init__(self):
+        template_file = open('./templates/index.html', 'r')
+        template_file_content = template_file.read()
+        template_file.close()
 
-        items = folder[2]
+        self.template = Template(template_file_content)
 
-        for item in items:
-            location = feed_title + '/' + item
-            location = urllib.parse.quote(location[2:])
-            content += f"<a href={location}>{item}</a><br />"
+    def generate_index(self):
+        item_objects = []
+        for folder in os.walk('.'):
+            feed_title = folder[0]
 
+            if feed_title == '.' or feed_title == '' or feed_title == './templates':
+                continue
+
+            items = folder[2]
+
+            for item in items:
+                item_object = {}
+                location = feed_title + '/' + item
+                location = urllib.parse.quote(location[2:])
+                item_object['location'] = location
+                item_object['name'] = item[:-5]
+                item_objects.append(item_object)
+
+        return self.template.render(item_objects=item_objects)
+
+
+class Entry():
+
+    def __init__(self, parsed_entry, feed_title):
+        self.feed_title = feed_title
+        self.title = parsed_entry.title.replace('/', '')
+        self.body = parsed_entry.description
+        self.link = parsed_entry.link
+        self.updated = parsed_entry.updated
+
+    def save(self):
+        location = self._get_location()
+        template = self._create_template()
+
+        f = open(location, 'w+')
+        f.write(template)
+        f.close()
+
+    def _get_location(self):
+        return os.path.join(
+            self.feed_title,
+            self.updated+self.title+'.html'
+        )
+
+    def _create_template(self):
+        template_file = open('./templates/entry.html', 'r')
+        template = template_file.read()
+        template_file.close()
+
+        rendered = Template(template)
+
+        return rendered.render(entry={
+            'title': self.title,
+            'feed_title': self.feed_title,
+            'body': self.body,
+            'updated': self.updated,
+            'link': self.link
+        })
+
+
+def create_index():
+    index = Index()
+    content = index.generate_index()
     f = open('index.html', 'w+')
     f.write(content)
     f.close()
@@ -48,6 +106,7 @@ class Feed():
 
         if not id_:
             self._insert_to_db(c)
+            self._parse_feed(c)
 
         if not self._needs_update(c):
             return
@@ -58,7 +117,6 @@ class Feed():
 
         conn.commit()
         c.close()
-        generate_index()
 
     def _get_etag(self, c):
         c.execute(
@@ -147,13 +205,8 @@ class Feed():
             os.makedirs(feed_title)
 
         for entry in self.d.entries:
-            entry_title = entry.title
-            body = entry.description
-            entry_title = entry_title.replace('/', '')
-
-            f = open(os.path.join(feed_title, entry_title+'.html'), 'w+')
-            f.write(body)
-            f.close()
+            e = Entry(entry, feed_title)
+            e.save()
 
         return
 
@@ -216,7 +269,7 @@ def main():
             feed = Feed(url)
             feed.sync()
 
-        return
+    create_index()
 
 
 if __name__ == '__main__':
