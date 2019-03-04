@@ -107,8 +107,7 @@ class Feed():
         if not id_:
             self._insert_to_db(c)
             self._parse_feed(c)
-
-        if not self._needs_update(c):
+        elif not self._needs_update(c):
             return
 
         self._delete_old_entries(c)
@@ -186,7 +185,7 @@ class Feed():
     def _delete_old_entries(self, c):
         c.execute(
             'SELECT last_delete FROM cache WHERE feed_url=?',
-            (self.url)
+            (self.url,)
         )
 
         last_delete = c.fetchone()[0]
