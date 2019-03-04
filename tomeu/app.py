@@ -1,4 +1,5 @@
 import os
+import re
 import shutil
 import hashlib
 import urllib.parse
@@ -32,10 +33,20 @@ class Index():
 
             for item in items:
                 item_object = {}
+                time_match = re.match(r'.+\d{2}:?\d{2}_-_', item)
+
+                if time_match:
+                    # Time string at the beginning
+                    time_string = time_match.group(0)
+                    item_name = item.replace(time_string, '')
+                else:
+                    # No time string at the beginning
+                    item_name = item
+
                 location = feed_title + '/' + item
                 location = urllib.parse.quote(location[2:])
                 item_object['location'] = location
-                item_object['name'] = item[:-5]
+                item_object['name'] = item_name[:-5]
                 item_objects.append(item_object)
 
         return self.template.render(item_objects=item_objects)
@@ -61,7 +72,7 @@ class Entry():
     def _get_location(self):
         return os.path.join(
             self.feed_title,
-            self.updated+self.title+'.html'
+            self.updated+'_-_'+self.title+'.html'
         )
 
     def _create_template(self):
