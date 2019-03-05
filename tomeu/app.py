@@ -1,7 +1,8 @@
 import os
 import sqlite3
-from os.path import isfile
 import argparse
+
+from os.path import isfile
 
 from .index import Index
 from .feed import Feed
