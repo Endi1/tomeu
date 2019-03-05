@@ -11,7 +11,6 @@ import argparse
 from datetime import datetime
 from dateutil import parser
 from jinja2 import Template
-from datetime import datetime
 
 
 class Index():
