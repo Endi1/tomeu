@@ -3,6 +3,7 @@ import sqlite3
 import argparse
 
 from os.path import isfile
+from shutil import copyfile
 
 from .index import Index
 from .feed import Feed
@@ -36,10 +37,24 @@ def setup(folder_name):
     if not os.path.exists(folder_name):
         os.makedirs(folder_name)
         setup_cache(folder_name)
+        setup_files(folder_name)
         print('Folder created')
     else:
         print(f'Folder with name {folder_name} already exists, aborting')
     return
+
+
+def setup_files(folder_name: str):
+    current_location: str = os.path.dirname(os.path.abspath(__file__))
+    files_location = os.path.join(current_location, 'setup_files')
+    templates_location = os.path.join(folder_name, 'templates')
+
+    if not os.path.exists(templates_location):
+        os.makedirs(templates_location)
+        copyfile(os.path.join(files_location, 'index.html'),
+                 os.path.join(templates_location, 'index.html'))
+        copyfile(os.path.join(files_location, 'entry.html'),
+                 os.path.join(templates_location, 'entry.html'))
 
 
 def create_parser():
