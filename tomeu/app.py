@@ -38,6 +38,8 @@ def setup(folder_name):
         os.makedirs(folder_name)
         setup_cache(folder_name)
         setup_files(folder_name)
+        f = open(os.path.join(folder_name, 'feeds'), 'w')
+        f.close()
         print('Folder created')
     else:
         print(f'Folder with name {folder_name} already exists, aborting')
