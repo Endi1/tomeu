@@ -112,7 +112,7 @@ class Feed():
         current_week_time = datetime.now().isocalendar()[1]
 
         if current_week_time - week_last_delete >= 1:
-            shutil.rmtree(self.d.feed.feed_title)
+            shutil.rmtree(self.d.feed.title)
 
     def _parse_feed(self, c):
         feed_title = self.d.feed.title
